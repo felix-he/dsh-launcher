@@ -27,13 +27,23 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 
 ## 安装与使用
 
+### 推荐下载方式：GitHub Releases
+
+1. 打开项目的 [Releases 页面](https://github.com/felix-he/dsh-launcher/releases)。
+2. 点击最新版本下方的 `dsh-launcher-v版本号.zip` 下载文件。
+3. 右键 ZIP 文件，选择 **全部解压缩**，再打开解压出来的文件夹。
+4. 双击 `CreateDesktopShortcut.cmd` 创建桌面快捷方式。
+
+> 不建议直接下载 GitHub 页面上的 **Source code (zip)**。请下载 Release 下方带有 `dsh-launcher-` 名称的 ZIP 文件。
+
 ### 第一次使用：一键创建桌面快捷方式
 
-1. 在 GitHub 项目页面点击 **Code → Download ZIP**，下载项目压缩包。
-2. 找到下载的 ZIP 文件，右键选择 **全部解压缩**，再打开解压出来的文件夹。
-3. 双击 `CreateDesktopShortcut.cmd`。如果 Windows 弹出安全提示，请点击 **打开**。
-4. 看到“Desktop shortcut created”提示后，桌面上会出现 **DSH Launcher** 快捷方式。
-5. 以后只需要双击桌面的 **DSH Launcher**，即可打开启动器界面。
+1. 如果你已经下载了 Release ZIP，请直接进入下一步。
+2. 如果暂时没有 Release，也可以在 GitHub 项目页面点击 **Code → Download ZIP**，下载项目压缩包。
+3. 找到下载的 ZIP 文件，右键选择 **全部解压缩**，再打开解压出来的文件夹。
+4. 双击 `CreateDesktopShortcut.cmd`。如果 Windows 弹出安全提示，请点击 **打开**。
+5. 看到“Desktop shortcut created”提示后，桌面上会出现 **DSH Launcher** 快捷方式。
+6. 以后只需要双击桌面的 **DSH Launcher**，即可打开启动器界面。
 
 脚本会自动找到当前文件夹里的 `DSHLauncher.ps1`，并自动处理 PowerShell 执行策略，不需要手动输入命令。
 
@@ -82,6 +92,7 @@ dsh-launcher/
 ├── CreateDesktopShortcut.cmd  # 双击即可创建桌面快捷方式
 ├── CreateDesktopShortcut.ps1   # 创建快捷方式的 PowerShell 脚本
 ├── docs/screenshot.png         # GitHub README 截图
+├── .github/workflows/release.yml # 自动生成 GitHub Release ZIP
 ├── .gitignore        # 忽略运行时状态文件
 └── README.md         # 项目说明
 ```
@@ -103,6 +114,16 @@ DeepSeek Harness 要求 Node.js ≥ v22.19，请升级 Node.js 后重试。
 ### 双击创建脚本没有反应？
 
 请确认你双击的是 `CreateDesktopShortcut.cmd`，而不是 `CreateDesktopShortcut.ps1`，并确认两个脚本和 `DSHLauncher.ps1` 在同一个文件夹中。如果仍然失败，请右键 `CreateDesktopShortcut.cmd`，选择 **以管理员身份运行** 后重试。
+
+## 发布新版本（项目维护者）
+
+1. 在本地修改代码并提交到 `main`。
+2. 创建版本标签，例如：`git tag v1.0.0`。
+3. 推送标签：`git push origin v1.0.0`。
+4. 打开 GitHub 的 **Actions** 页面，等待 **Build GitHub Release** 完成。
+5. 在 **Releases** 页面确认已生成 ZIP 附件。
+
+以后每次推送以 `v` 开头的标签，GitHub 都会自动创建一个新的 Release，并附带可下载的 ZIP 文件。
 
 ## 许可证
 

@@ -1,0 +1,50 @@
+name: Build GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Create release ZIP
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $packageName = "dsh-launcher-$env:RELEASE_TAG"
+          $packageRoot = Join-Path $env:RUNNER_TEMP $packageName
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE "$packageName.zip"
+
+          New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
+          $files = @(
+            'DSHLauncher.ps1',
+            'CreateDesktopShortcut.cmd',
+            'CreateDesktopShortcut.ps1',
+            'README.md',
+            'LICENSE'
+          )
+          foreach ($file in $files) {
+            Copy-Item (Join-Path $env:GITHUB_WORKSPACE $file) $packageRoot
+          }
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'docs') $packageRoot -Recurse
+
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $zipPath
+          "PACKAGE_PATH=$zipPath" >> $env:GITHUB_ENV
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "$env:PACKAGE_PATH" --title "DSH Launcher ${{ github.ref_name }}" --generate-notes
