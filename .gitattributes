@@ -1,0 +1,9 @@
+# 统一行尾处理
+* text=auto
+
+# PowerShell 脚本保持 CRLF（Windows 原生换行）
+*.ps1 text eol=crlf
+
+# Markdown / 文本使用 LF
+*.md text eol=lf
+*.txt text eol=lf

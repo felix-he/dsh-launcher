@@ -1,0 +1,11 @@
+# 运行时状态文件（由启动器动态生成）
+dsh.pid
+*.pid
+
+# Windows 系统文件
+Thumbs.db
+Desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
