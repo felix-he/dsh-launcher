@@ -6,6 +6,8 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 
 ![启动器界面](docs/screenshot.png)
 
+> 如果 GitHub 页面仍然看不到截图，请确认你已将 `docs/screenshot.png` 一起提交并推送到当前 README 所在的分支。图片文件已经放在本仓库中，README 使用的是仓库内的相对路径。
+
 ## 功能特性
 
 - **一键启动**：在独立窗口启动 dsh web 服务
@@ -25,14 +27,32 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 
 ## 安装与使用
 
-1. 将 `DSHLauncher.ps1` 放到任意目录（例如 `D:\tools\dsh-launcher`）；
-2. 创建桌面快捷方式，目标指向（注意脚本路径换成你的实际路径）：
+### 第一次使用：一键创建桌面快捷方式
 
-   ```
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "D:\tools\dsh-launcher\DSHLauncher.ps1"
-   ```
+1. 在 GitHub 项目页面点击 **Code → Download ZIP**，下载项目压缩包。
+2. 找到下载的 ZIP 文件，右键选择 **全部解压缩**，再打开解压出来的文件夹。
+3. 双击 `CreateDesktopShortcut.cmd`。如果 Windows 弹出安全提示，请点击 **打开**。
+4. 看到“Desktop shortcut created”提示后，桌面上会出现 **DSH Launcher** 快捷方式。
+5. 以后只需要双击桌面的 **DSH Launcher**，即可打开启动器界面。
 
-3. 双击快捷方式即可打开启动器界面。
+脚本会自动找到当前文件夹里的 `DSHLauncher.ps1`，并自动处理 PowerShell 执行策略，不需要手动输入命令。
+
+### 直接运行（给熟悉 PowerShell 的用户）
+
+也可以在 PowerShell 中运行下面的命令。请将路径换成实际的项目文件夹路径：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\CreateDesktopShortcut.ps1"
+```
+
+### 首次启动 DSH
+
+1. 确认电脑已安装 Node.js v22.19 或更高版本。没有安装时，请先访问 [Node.js 官网](https://nodejs.org/) 安装 **LTS** 版本。
+2. 双击桌面的 **DSH Launcher**。
+3. 点击 **启动 DSH**。如果还没有安装 DeepSeek Harness，程序会询问是否自动安装，请点击 **Yes**。
+4. 安装完成后，程序会打开 dsh web 窗口。保持该窗口打开即可使用服务。
+
+> 不要直接双击 `DSHLauncher.ps1`。请使用桌面快捷方式，或先双击 `CreateDesktopShortcut.cmd` 创建快捷方式。
 
 > 提示：脚本文件必须保持 **UTF-8 with BOM** 编码——Windows PowerShell 5.1 会按 ANSI 解析无 BOM 文件，导致中文乱码和语法错误。
 
@@ -59,6 +79,9 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 ```
 dsh-launcher/
 ├── DSHLauncher.ps1   # 启动器主脚本（GUI）
+├── CreateDesktopShortcut.cmd  # 双击即可创建桌面快捷方式
+├── CreateDesktopShortcut.ps1   # 创建快捷方式的 PowerShell 脚本
+├── docs/screenshot.png         # GitHub README 截图
 ├── .gitignore        # 忽略运行时状态文件
 └── README.md         # 项目说明
 ```
@@ -75,7 +98,11 @@ DeepSeek Harness 要求 Node.js ≥ v22.19，请升级 Node.js 后重试。
 脚本文件必须为 UTF-8 with BOM 编码，否则 Windows PowerShell 5.1 解析会出现乱码导致语法错误。
 
 ### 直接运行 .ps1 被阻止？
-执行策略限制所致：使用快捷方式（已带 `-ExecutionPolicy Bypass`），或执行 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。
+执行策略限制所致：双击 `CreateDesktopShortcut.cmd` 创建快捷方式即可。快捷方式已经带有 `-ExecutionPolicy Bypass`，不需要修改系统设置。
+
+### 双击创建脚本没有反应？
+
+请确认你双击的是 `CreateDesktopShortcut.cmd`，而不是 `CreateDesktopShortcut.ps1`，并确认两个脚本和 `DSHLauncher.ps1` 在同一个文件夹中。如果仍然失败，请右键 `CreateDesktopShortcut.cmd`，选择 **以管理员身份运行** 后重试。
 
 ## 许可证
 
