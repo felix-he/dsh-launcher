@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # ============================================================
 #  DeepSeek Harness 启动器 (dsh-launcher)
 #  功能: 检测 / 启动 / 重启 / 升级 / 自动安装 DeepSeek Harness (dsh)
