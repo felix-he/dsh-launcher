@@ -25,3 +25,17 @@ Add-Type -AssemblyName System.Windows.Forms
     'OK',
     'Information'
 ) | Out-Null
+
+try {
+    Start-Process -FilePath $powershellPath `
+        -ArgumentList @(
+            '-NoProfile',
+            '-ExecutionPolicy', 'Bypass',
+            '-WindowStyle', 'Hidden',
+            '-File', $launcherPath
+        ) `
+        -WorkingDirectory $PSScriptRoot `
+        -ErrorAction Stop | Out-Null
+} catch {
+    throw "Failed to start DSH Launcher: $($_.Exception.Message)"
+}
