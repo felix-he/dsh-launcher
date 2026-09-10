@@ -40,9 +40,15 @@ function Resolve-NodeExe {
 function Resolve-DshCmd {
     $candidates = @()
     # 优先 npm 实际全局安装目录（npm install -g 的写入位置，升级后保持一致）
-    $g = Get-Command npm -ErrorAction SilentlyContinue
-    if ($g) {
-        $prefix = (& $g.Source config get prefix 2>$null | Select-Object -First 1)
+    $npmForPrefix = $script:npmCmd
+    if (-not $npmForPrefix) {
+        $g = Get-Command npm -ErrorAction SilentlyContinue
+        if ($g) { $npmForPrefix = $g.Path }
+    }
+    if ($npmForPrefix) {
+        # Use a scalar executable path. Windows PowerShell 5.1 parses "& $g.Source"
+        # incorrectly and passes "g.Source" to npm instead of invoking the path.
+        $prefix = (& $npmForPrefix config get prefix 2>$null | Select-Object -First 1)
         if ($prefix) { $candidates += (Join-Path ($prefix.Trim()) 'dsh.cmd') }
     }
     if ($env:ProgramFiles) { $candidates += "$env:ProgramFiles\nodejs\dsh.cmd" }
@@ -469,7 +475,7 @@ $timer.Add_Tick({
                     if ($now -eq $script:expectedVersion) {
                         $script:log.AppendText(">>> 版本校验通过: $now`r`n")
                     } else {
-                        $script:log.AppendText(">>> 注意: 当前版本仍是 $now（期望 $($script:expectedVersion)），`r`n>>> 可能是 npm 镜像缓存延迟导致未真正升级，请稍后重试。`r`n")
+                        $script:log.AppendText(">>> 注意: 当前版本仍是 $now（期望 $($script:expectedVersion)）。`r`n>>> 请检查 npm 全局安装前缀和 dsh 命令路径是否一致后重试。`r`n")
                     }
                     $script:expectedVersion = $null
                 }

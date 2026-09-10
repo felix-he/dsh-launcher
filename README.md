@@ -12,7 +12,7 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 
 - **一键启动**：在独立窗口启动 dsh web 服务
 - **一键重启**：先停止正在运行的 dsh，再重新启动（三层停止机制，保证端口释放、无残留进程）
-- **一键升级**：显式版本 + `--prefer-online` + 安装后版本校验，避免 npm 缓存导致的"假升级"
+- **一键升级**：显式版本 + `--prefer-online` + 安装后版本校验，避免 npm 路径不一致导致的"假升级"
 - **自动安装**：未检测到 dsh 时自动提示，并通过 `npm install -g` 安装
 - **环境自检**：启动时自动检测 Node.js / dsh / npm 最新版本；Node 版本不满足要求时给出明确提示
 - **执行提示**：安装、升级、启动、重启和停止过程显示当前动作、等待提示和异常结果
@@ -84,7 +84,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\s
   1. 按唯一窗口标题发送窗口关闭消息（等同点击窗口 X，dsh 可优雅退出）；
   2. 若未退出，`taskkill /T /F` 结束进程树；
   3. 按命令行特征 `@deepseek-ai\dsh` 清扫残留 node 进程，确保端口 3080 释放；
-- **升级**：读取 npm 最新版本 → 显式指定 `@deepseek-ai/dsh@<版本>` + `--prefer-online` 安装 → 重新探测环境并校验实际版本；若版本未变化，明确提示"npm 镜像缓存延迟"而非误报成功。
+- **升级**：读取 npm 最新版本 → 显式指定 `@deepseek-ai/dsh@<版本>` + `--prefer-online` 安装 → 按 npm 全局前缀重新探测 dsh 并校验实际版本；若版本未变化，提示检查 npm 前缀和命令路径。
 - **执行提示**：启动器会显示安装、升级、重启和停止的阶段性日志；npm 输出会在后台任务运行期间逐步显示。独立 dsh 窗口会提示启动、运行注意事项和退出码。
 
 ## 项目结构
@@ -104,7 +104,13 @@ dsh-launcher/
 ## 常见问题
 
 ### 升级显示成功但版本没变？
-npm 镜像（如 npmmirror）缓存可能导致 `@latest` 解析到旧版本。脚本已内置 `--prefer-online` + 显式版本 + 安装后校验，出现该情况会提示"镜像缓存延迟"，稍后重试即可。
+如果 npm 使用的全局安装前缀与 PATH 中优先找到的 `dsh.cmd` 不一致，npm 可能已经升级成功，但启动器仍会读取旧副本。启动器会按 npm 的实际全局前缀定位 dsh；如果仍有问题，请在 PowerShell 中检查：
+
+```powershell
+npm config get prefix
+npm list -g @deepseek-ai/dsh --depth=0
+where.exe dsh
+```
 
 ### 启动时报 Node.js 版本过低？
 DeepSeek Harness 要求 Node.js ≥ v22.19，请升级 Node.js 后重试。
