@@ -180,7 +180,7 @@ function Start-DshWeb {
     }
     $script:log.AppendText(">>> 正在准备 dsh web 独立窗口，请稍候...`r`n>>> 注意: 新窗口启动后请保持其打开，关闭该窗口会停止 DSH。`r`n")
     $nodeDir = Split-Path -Parent $script:nodeExe
-    $inner = "`$Host.UI.RawUI.WindowTitle = 'dsh web (DSH Launcher)'; `$env:PATH = '$nodeDir;' + `$env:PATH; Write-Host ''; Write-Host '>>> 正在启动 DeepSeek Harness dsh web，请稍候...'; Write-Host '>>> 服务运行期间请保持此窗口打开。关闭此窗口会停止 DSH。'; try { & '$($script:dshCmd)' web; `$exitCode = `$LASTEXITCODE; Write-Host ''; Write-Host ('>>> dsh web 已退出，退出码: ' + `$exitCode) } catch { Write-Host ''; Write-Host ('>>> dsh web 启动失败: ' + `$_.Exception.Message); `$exitCode = 1 }; Write-Host '>>> 请返回 DSH 启动器查看状态，或重新点击「启动 DSH」重试。'; exit `$exitCode"
+    $inner = "`$Host.UI.RawUI.WindowTitle = 'dsh web (DSH Launcher)'; `$env:PATH = '$nodeDir;' + `$env:PATH; Write-Host ''; Write-Host '>>> 正在启动 DeepSeek Harness dsh web，请稍候...'; Write-Host '>>> 服务运行期间请保持此窗口打开。关闭此窗口会停止 DSH。'; try { & '$($script:dshCmd)' web; `$exitCode = `$LASTEXITCODE; Write-Host ''; Write-Host ('>>> dsh web 已退出，退出码: ' + `$exitCode) } catch { Write-Host ''; Write-Host ('>>> dsh web 启动失败: ' + `$_.Exception.Message); `$exitCode = 1 }; Write-Host '>>> 请返回 DSH 启动器查看状态，或重新点击「启动 DSH」重试。'; Write-Host '>>> 此窗口不会自动关闭，请检查上面的错误信息后手动关闭。'"
     $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($inner))
     try {
         $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc) -PassThru -ErrorAction Stop

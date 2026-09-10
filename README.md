@@ -115,6 +115,18 @@ where.exe dsh
 ### 启动时报 Node.js 版本过低？
 DeepSeek Harness 要求 Node.js ≥ v22.19，请升级 Node.js 后重试。
 
+### 新版本启动时报 `unsupported Harness subagent contract` 或 `webServer without inject`？
+这通常是旧版第三方插件与新版本 DSH 不兼容，而不是启动器窗口问题。请在 PowerShell 中执行以下命令，重建 web profile 依赖并移除已知不兼容的 loopx 插件：
+
+```powershell
+$profile = "$env:USERPROFILE\.dsh\profiles\web"
+pnpm --dir $profile install --force
+pnpm --dir $profile add -w @nanmicoder/dsh-agent-teams@0.1.17-rc.1 --save-exact
+pnpm --dir $profile remove -w dsh-loopx-plugin
+```
+
+然后编辑 `$profile\package.json`，从 `dsh.profile.bundles` 中删除 `dsh-loopx-plugin`，再重新点击「启动 DSH」。如果窗口中显示 `dsh web: http://127.0.0.1:3080/`，说明服务已正常启动。
+
 ### 脚本中文乱码？
 脚本文件必须为 UTF-8 with BOM 编码，否则 Windows PowerShell 5.1 解析会出现乱码导致语法错误。
 
