@@ -82,6 +82,8 @@ function Test-NodeCompat {
 $script:bgJob = $null      # 安装/升级任务
 $script:latestJob = $null  # 最新版本查询任务
 $script:bgLabel = ''
+$script:bgOutput = @()
+$script:bgExitCode = $null
 $script:autoLaunch = $false
 $script:expectedVersion = $null
 $script:launcherDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -95,23 +97,25 @@ function Invoke-NpmAsync([string[]]$npmArgs, [string]$label) {
         return
     }
     $script:bgLabel = $label
+    $script:bgOutput = @()
+    $script:bgExitCode = $null
     Set-ButtonsEnabled $false
-    $script:log.AppendText("`r`n>>> $label ...`r`n")
+    $script:log.AppendText("`r`n>>> $label...`r`n>>> 正在执行 npm 操作，请耐心等待，期间不要关闭启动器。`r`n")
     $script:bgJob = Start-Job -ScriptBlock {
         param($npm, $node, $argsArr, $wd)
         $nodeDir = Split-Path -Parent $node
         $env:PATH = "$nodeDir;$env:PATH"
         Set-Location $wd
-        $out = & $npm @argsArr 2>&1 | ForEach-Object {
+        & $npm @argsArr 2>&1 | ForEach-Object {
             if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message }
             else { $_ }
-        } | Out-String
+        }
         $code = $LASTEXITCODE
-        return "EXITCODE=$code`r`n$out"
+        Write-Output "EXITCODE=$code"
     } -ArgumentList $script:npmCmd, $script:nodeExe, $npmArgs, (Get-Location).Path
 }
 
-function Refresh-LatestAsync {
+function Update-LatestAsync {
     if ($script:latestJob) { return }
     if (-not $script:npmCmd) { $script:lblLatest.Text = '最新版本: 未知'; return }
     $script:lblLatest.Text = '最新版本: 检查中...'
@@ -125,7 +129,7 @@ function Refresh-LatestAsync {
 }
 
 # ---------------- 状态刷新 ----------------
-function Refresh-Status {
+function Update-Status {
     # 安装/升级完成后重新探测环境，确保 dshCmd 等路径为最新
     $script:npmCmd = Resolve-NodeNpm
     $script:nodeExe = Resolve-NodeExe
@@ -146,7 +150,7 @@ function Refresh-Status {
     $script:lblDsh.Text = "DSH:  $dv"
     if ($dv -eq '未安装') { $script:lblDsh.ForeColor = [System.Drawing.Color]::OrangeRed }
     else { $script:lblDsh.ForeColor = [System.Drawing.Color]::Green }
-    Refresh-LatestAsync
+    Update-LatestAsync
 }
 
 function Set-ButtonsEnabled([bool]$enabled) {
@@ -157,42 +161,56 @@ function Set-ButtonsEnabled([bool]$enabled) {
 }
 
 # ---------------- 启动 / 升级 ----------------
-function Launch-DshWeb {
+function Start-DshWeb {
     if (-not $script:nodeExe) {
+        $script:log.AppendText(">>> 启动前检查失败: 未检测到 Node.js。请安装 Node.js 后重试。`r`n")
         [System.Windows.Forms.MessageBox]::Show('未检测到 Node.js，无法启动 dsh。请先安装 Node.js。', 'DSH 启动器', 'OK', 'Warning') | Out-Null
         return
     }
     if (-not (Test-NodeCompat)) {
+        $script:log.AppendText(">>> 启动前检查失败: Node.js 版本不足，需要 v22.19 或更高版本。`r`n")
         [System.Windows.Forms.MessageBox]::Show("当前 Node.js 版本过低 ($(Get-NodeVersion))，`r`nDeepSeek Harness 需要 Node.js v22.19+。`r`n请升级 Node.js 后再启动。", 'DSH 启动器', 'OK', 'Warning') | Out-Null
         return
     }
+    $script:log.AppendText(">>> 正在准备 dsh web 独立窗口，请稍候...`r`n>>> 注意: 新窗口启动后请保持其打开，关闭该窗口会停止 DSH。`r`n")
     $nodeDir = Split-Path -Parent $script:nodeExe
-    $inner = "`$Host.UI.RawUI.WindowTitle = 'dsh web (DSH Launcher)'; `$env:PATH = '$nodeDir;' + `$env:PATH; & '$($script:dshCmd)' web"
+    $inner = "`$Host.UI.RawUI.WindowTitle = 'dsh web (DSH Launcher)'; `$env:PATH = '$nodeDir;' + `$env:PATH; Write-Host ''; Write-Host '>>> 正在启动 DeepSeek Harness dsh web，请稍候...'; Write-Host '>>> 服务运行期间请保持此窗口打开。关闭此窗口会停止 DSH。'; try { & '$($script:dshCmd)' web; `$exitCode = `$LASTEXITCODE; Write-Host ''; Write-Host ('>>> dsh web 已退出，退出码: ' + `$exitCode) } catch { Write-Host ''; Write-Host ('>>> dsh web 启动失败: ' + `$_.Exception.Message); `$exitCode = 1 }; Write-Host '>>> 请返回 DSH 启动器查看状态，或重新点击「启动 DSH」重试。'; exit `$exitCode"
     $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($inner))
-    $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc) -PassThru
+    try {
+        $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc) -PassThru -ErrorAction Stop
+    } catch {
+        $script:log.AppendText(">>> 启动失败: 无法创建 dsh PowerShell 窗口。$($_.Exception.Message)`r`n")
+        [System.Windows.Forms.MessageBox]::Show('无法创建 dsh PowerShell 窗口，请检查 PowerShell 配置后重试。', 'DSH 启动器', 'OK', 'Error') | Out-Null
+        return
+    }
     $script:dshPid = $p.Id
     try { Set-Content -Path $script:pidFile -Value $p.Id -Encoding ascii } catch { }
     $script:log.AppendText("`r`n>>> 已启动 dsh web（PID $($p.Id)），关闭该窗口即可停止服务。`r`n")
 }
 
 function Start-Dsh {
+    $script:log.AppendText("`r`n>>> 正在检查 Node.js 和 DSH 环境...`r`n")
     if (-not $script:dshCmd) {
         if (-not $script:nodeExe) {
+            $script:log.AppendText(">>> 检查失败: 未检测到 Node.js，无法安装 DSH。`r`n")
             [System.Windows.Forms.MessageBox]::Show('未检测到 Node.js。DeepSeek Harness 依赖 Node.js (v22.19+)，`r`n请先到 https://nodejs.org 安装后，再重新打开本工具。', 'DSH 启动器', 'OK', 'Warning') | Out-Null
             return
         }
         $r = [System.Windows.Forms.MessageBox]::Show("未检测到 DeepSeek Harness (dsh)。`r`n是否立即自动安装？`r`n（将执行: npm install -g @deepseek-ai/dsh）", 'DSH 启动器', 'YesNo', 'Question')
         if ($r -eq [System.Windows.Forms.DialogResult]::Yes) {
+            $script:log.AppendText(">>> 已确认安装 DSH，安装完成后将自动启动。`r`n")
             $script:autoLaunch = $true
             Invoke-NpmAsync @('-g', 'install', '@deepseek-ai/dsh') '正在安装 DeepSeek Harness'
         }
         return
     }
     if (-not (Test-NodeCompat)) {
+        $script:log.AppendText(">>> 检查失败: Node.js 版本不足，当前为 $(Get-NodeVersion)，需要 v22.19+。`r`n")
         [System.Windows.Forms.MessageBox]::Show("当前 Node.js 版本过低 ($(Get-NodeVersion))，`r`nDeepSeek Harness 需要 Node.js v22.19+。`r`n请升级 Node.js 后再启动。", 'DSH 启动器', 'OK', 'Warning') | Out-Null
         return
     }
-    Launch-DshWeb
+    $script:log.AppendText(">>> 环境检查通过，正在打开 dsh web 窗口...`r`n")
+    Start-DshWeb
 }
 
 function Update-Dsh {
@@ -245,6 +263,7 @@ function Test-DshRunning {
 }
 
 function Stop-Dsh {
+    $script:log.AppendText(">>> 正在停止 dsh，请不要关闭启动器...`r`n")
     $stopped = $false
     $targetPid = $null
     if (Test-Path $script:pidFile) {
@@ -255,7 +274,7 @@ function Stop-Dsh {
     $hwnd = [Win32.NativeMethods]::FindWindow($null, 'dsh web (DSH Launcher)')
     if ($hwnd -ne [IntPtr]::Zero) {
         [void][Win32.NativeMethods]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-        $script:log.AppendText(">>> 已向 dsh 窗口发送关闭请求，等待退出...`r`n")
+        $script:log.AppendText(">>> 已发送优雅关闭请求，正在等待 dsh 退出...`r`n")
         $deadline = (Get-Date).AddSeconds(8)
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
@@ -267,12 +286,14 @@ function Stop-Dsh {
     }
     # 2) 若窗口进程仍存活 → 强杀进程树
     if ($targetPid -and (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) {
+        $script:log.AppendText(">>> dsh 未能及时退出，正在强制结束进程树...`r`n")
         & taskkill.exe /PID $targetPid /T /F 2>$null | Out-Null
         $stopped = $true
     }
     # 3) 兜底: 清理残留的 dsh node 进程
     $hits = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match '@deepseek-ai\\dsh' })
     foreach ($h in $hits) {
+        $script:log.AppendText(">>> 正在清理残留 dsh Node 进程...`r`n")
         & taskkill.exe /PID $h.ProcessId /T /F 2>$null | Out-Null
         $stopped = $true
     }
@@ -291,13 +312,13 @@ function Stop-Dsh {
 }
 
 function Restart-Dsh {
-    $script:log.AppendText("`r`n>>> 正在重启 dsh...`r`n")
+    $script:log.AppendText("`r`n>>> 正在重启 dsh，请等待停止和重新启动完成...`r`n")
     Stop-Dsh | Out-Null
     Start-Sleep -Milliseconds 800
     if (-not $script:dshCmd) {
         Start-Dsh   # 未安装时走自动安装流程
     } else {
-        Launch-DshWeb
+        Start-DshWeb
     }
 }
 
@@ -427,14 +448,22 @@ $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 250
 $timer.Add_Tick({
     if ($script:bgJob) {
+        $newOutput = @(Receive-Job $script:bgJob -ErrorAction SilentlyContinue)
+        foreach ($line in $newOutput) {
+            $text = [string]$line
+            if ($text -match '^EXITCODE=(\d+)$') {
+                $script:bgExitCode = [int]$Matches[1]
+            } elseif ($text) {
+                $script:bgOutput += $text
+                $script:log.AppendText("$text`r`n")
+            }
+        }
         if ($script:bgJob.State -eq 'Completed') {
-            $out = (Receive-Job $script:bgJob -Keep | Out-String).Trim()
             Remove-Job $script:bgJob -Force
             $script:bgJob = $null
-            $script:log.AppendText("$out`r`n")
-            if ($out -match '(?m)^EXITCODE=0') {
+            if ($script:bgExitCode -eq 0) {
                 $script:log.AppendText(">>> $($script:bgLabel) 成功`r`n")
-                Refresh-Status
+                Update-Status
                 if ($script:expectedVersion) {
                     $now = Get-DshVersion
                     if ($now -eq $script:expectedVersion) {
@@ -454,10 +483,9 @@ $timer.Add_Tick({
             }
             Set-ButtonsEnabled $true
         } elseif ($script:bgJob.State -eq 'Failed') {
-            $out = (Receive-Job $script:bgJob -Keep | Out-String).Trim()
             Remove-Job $script:bgJob -Force
             $script:bgJob = $null
-            $script:log.AppendText("$out`r`n>>> $($script:bgLabel) 异常失败`r`n")
+            $script:log.AppendText(">>> $($script:bgLabel) 异常失败，请检查上方输出并重试。`r`n")
             $script:autoLaunch = $false
             Set-ButtonsEnabled $true
         }
@@ -473,7 +501,11 @@ $timer.Add_Tick({
 })
 $timer.Start()
 
-$form.Add_FormClosed({
+$form.Add_FormClosing({
+    $form.Text = '正在停止 DSH，请稍候...'
+    Set-ButtonsEnabled $false
+    [System.Windows.Forms.Application]::DoEvents()
+    Stop-Dsh | Out-Null
     if ($script:bgJob) { Stop-Job $script:bgJob -ErrorAction SilentlyContinue; Remove-Job $script:bgJob -Force -ErrorAction SilentlyContinue }
     if ($script:latestJob) { Stop-Job $script:latestJob -ErrorAction SilentlyContinue; Remove-Job $script:latestJob -Force -ErrorAction SilentlyContinue }
     $timer.Stop()
@@ -481,7 +513,7 @@ $form.Add_FormClosed({
 
 # 初始状态
 $form.Add_Shown({
-    Refresh-Status
+    Update-Status
     if (-not $script:dshCmd) {
         $script:log.AppendText(">>> 未检测到 DeepSeek Harness (dsh)，点击「启动 DSH」可自动安装。`r`n")
     } else {

@@ -27,15 +27,16 @@ jobs:
 
           New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
           $files = @(
-            'DSHLauncher.ps1',
             'CreateDesktopShortcut.cmd',
-            'CreateDesktopShortcut.ps1',
             'README.md',
             'LICENSE'
           )
           foreach ($file in $files) {
             Copy-Item (Join-Path $env:GITHUB_WORKSPACE $file) $packageRoot
           }
+          New-Item -ItemType Directory -Path (Join-Path $packageRoot 'scripts') -Force | Out-Null
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'scripts\DSHLauncher.ps1') (Join-Path $packageRoot 'scripts')
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'scripts\CreateDesktopShortcut.ps1') (Join-Path $packageRoot 'scripts')
           Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'docs') $packageRoot -Recurse
 
           if (Test-Path $zipPath) {

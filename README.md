@@ -15,7 +15,7 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 - **一键升级**：显式版本 + `--prefer-online` + 安装后版本校验，避免 npm 缓存导致的"假升级"
 - **自动安装**：未检测到 dsh 时自动提示，并通过 `npm install -g` 安装
 - **环境自检**：启动时自动检测 Node.js / dsh / npm 最新版本；Node 版本不满足要求时给出明确提示
-- **实时日志**：安装 / 升级 / 启动过程输出实时显示（已过滤 stderr 噪音）
+- **执行提示**：安装、升级、启动、重启和停止过程显示当前动作、等待提示和异常结果
 
 ## 环境要求
 
@@ -45,14 +45,14 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 5. 看到“Desktop shortcut created”提示后，桌面上会出现 **DSH Launcher** 快捷方式。
 6. 以后只需要双击桌面的 **DSH Launcher**，即可打开启动器界面。
 
-脚本会自动找到当前文件夹里的 `DSHLauncher.ps1`，并自动处理 PowerShell 执行策略，不需要手动输入命令。
+脚本会自动找到 `scripts` 文件夹里的启动器脚本，并自动处理 PowerShell 执行策略，不需要手动输入命令。
 
 ### 直接运行（给熟悉 PowerShell 的用户）
 
 也可以在 PowerShell 中运行下面的命令。请将路径换成实际的项目文件夹路径：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\CreateDesktopShortcut.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\scripts\CreateDesktopShortcut.ps1"
 ```
 
 ### 首次启动 DSH
@@ -62,7 +62,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\C
 3. 点击 **启动 DSH**。如果还没有安装 DeepSeek Harness，程序会询问是否自动安装，请点击 **Yes**。
 4. 安装完成后，程序会打开 dsh web 窗口。保持该窗口打开即可使用服务。
 
-> 不要直接双击 `DSHLauncher.ps1`。请使用桌面快捷方式，或先双击 `CreateDesktopShortcut.cmd` 创建快捷方式。
+> 安装或升级期间请保持启动器打开。独立的 dsh PowerShell 窗口会显示启动状态；服务运行期间请保持该窗口打开，关闭它会停止 DSH。
+
+> 不要直接双击 `scripts\DSHLauncher.ps1` 或 `scripts\CreateDesktopShortcut.ps1`。请使用桌面快捷方式，或先双击根目录的 `CreateDesktopShortcut.cmd` 创建快捷方式。
 
 > 提示：脚本文件必须保持 **UTF-8 with BOM** 编码——Windows PowerShell 5.1 会按 ANSI 解析无 BOM 文件，导致中文乱码和语法错误。
 
@@ -73,7 +75,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\C
 | 启动 DSH | 启动 dsh web；未安装时自动提示并安装 |
 | 重启 DSH | 停止当前 dsh 后重新启动 |
 | 升级 DSH | 升级到 npm 最新版本，完成后校验版本 |
-| 退出 | 关闭启动器（不影响已启动的 dsh） |
+| 退出 | 停止已启动的 dsh 后关闭启动器 |
 
 ## 工作原理
 
@@ -83,14 +85,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\C
   2. 若未退出，`taskkill /T /F` 结束进程树；
   3. 按命令行特征 `@deepseek-ai\dsh` 清扫残留 node 进程，确保端口 3080 释放；
 - **升级**：读取 npm 最新版本 → 显式指定 `@deepseek-ai/dsh@<版本>` + `--prefer-online` 安装 → 重新探测环境并校验实际版本；若版本未变化，明确提示"npm 镜像缓存延迟"而非误报成功。
+- **执行提示**：启动器会显示安装、升级、重启和停止的阶段性日志；npm 输出会在后台任务运行期间逐步显示。独立 dsh 窗口会提示启动、运行注意事项和退出码。
 
 ## 项目结构
 
 ```
 dsh-launcher/
-├── DSHLauncher.ps1   # 启动器主脚本（GUI）
 ├── CreateDesktopShortcut.cmd  # 双击即可创建桌面快捷方式
-├── CreateDesktopShortcut.ps1   # 创建快捷方式的 PowerShell 脚本
+├── scripts/
+│   ├── DSHLauncher.ps1   # 启动器主脚本（GUI）
+│   └── CreateDesktopShortcut.ps1   # 创建快捷方式的 PowerShell 脚本
 ├── docs/screenshot.png         # GitHub README 截图
 ├── .github/workflows/release.yml # 自动生成 GitHub Release ZIP
 ├── .gitignore        # 忽略运行时状态文件
@@ -113,7 +117,7 @@ DeepSeek Harness 要求 Node.js ≥ v22.19，请升级 Node.js 后重试。
 
 ### 双击创建脚本没有反应？
 
-请确认你双击的是 `CreateDesktopShortcut.cmd`，而不是 `CreateDesktopShortcut.ps1`，并确认两个脚本和 `DSHLauncher.ps1` 在同一个文件夹中。如果仍然失败，请右键 `CreateDesktopShortcut.cmd`，选择 **以管理员身份运行** 后重试。
+请确认你双击的是根目录的 `CreateDesktopShortcut.cmd`，而不是 `scripts` 文件夹里的 PowerShell 脚本，并确认 `scripts\CreateDesktopShortcut.ps1` 和 `scripts\DSHLauncher.ps1` 都存在。如果仍然失败，请右键 `CreateDesktopShortcut.cmd`，选择 **以管理员身份运行** 后重试。
 
 ## 发布新版本（项目维护者）
 
