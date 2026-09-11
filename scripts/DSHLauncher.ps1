@@ -92,6 +92,7 @@ $script:bgOutput = @()
 $script:bgExitCode = $null
 $script:autoLaunch = $false
 $script:expectedVersion = $null
+$script:reinstallInstallPending = $false
 $script:launcherDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:pidFile = Join-Path $script:launcherDir 'dsh.pid'
 $script:dshPid = $null
@@ -163,6 +164,7 @@ function Set-ButtonsEnabled([bool]$enabled) {
     $script:btnStart.Enabled = $enabled
     $script:btnRestart.Enabled = $enabled
     $script:btnUpgrade.Enabled = $enabled
+    $script:btnReinstall.Enabled = $enabled
     $script:btnQuit.Enabled = $enabled
 }
 
@@ -256,6 +258,30 @@ function Update-Dsh {
     }
 }
 
+function Reinstall-Dsh {
+    if (-not $script:nodeExe -or -not $script:npmCmd) {
+        [System.Windows.Forms.MessageBox]::Show('未检测到 Node.js 或 npm，请先安装 Node.js 后再试。', '重装 DSH', 'OK', 'Warning') | Out-Null
+        return
+    }
+    $choice = [System.Windows.Forms.MessageBox]::Show("请选择重装方式：`r`n`r`n是：强制覆盖安装最新版`r`n否：卸载全局 DSH 包后再安装最新版`r`n取消：返回", '重装 DSH', 'YesNoCancel', 'Question')
+    if ($choice -eq [System.Windows.Forms.DialogResult]::Cancel) { return }
+    $uninstallFirst = ($choice -eq [System.Windows.Forms.DialogResult]::No)
+    $mode = if ($uninstallFirst) { '卸载后重装' } else { '强制覆盖安装' }
+    $confirm = [System.Windows.Forms.MessageBox]::Show("将执行：$mode。`r`n`r`n仅处理全局 npm 包 @deepseek-ai/dsh，不会删除 .dsh profile、插件或配置。`r`n重装完成后 DSH 保持停止。`r`n`r`n是否继续？", '确认重装 DSH', 'YesNo', 'Warning')
+    if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+    if (Test-DshRunning) { Stop-Dsh | Out-Null }
+    $script:autoLaunch = $false
+    $script:expectedVersion = $null
+    $script:reinstallInstallPending = $false
+    if ($uninstallFirst) {
+        $script:reinstallInstallPending = $true
+        Invoke-NpmAsync @('-g', 'uninstall', '@deepseek-ai/dsh') '正在卸载旧版 DeepSeek Harness'
+    } else {
+        Invoke-NpmAsync @('-g', 'install', '--force', '--prefer-online', '@deepseek-ai/dsh@latest') '正在强制重装 DeepSeek Harness'
+    }
+}
+
 # ---------------- 停止 / 重启 ----------------
 function Test-DshRunning {
     if (Test-Path $script:pidFile) {
@@ -335,7 +361,7 @@ $script:dshCmd = Resolve-DshCmd
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'DeepSeek Harness 启动器'
-$form.ClientSize = New-Object System.Drawing.Size(520, 480)
+$form.ClientSize = New-Object System.Drawing.Size(640, 480)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedSingle'
 $form.MaximizeBox = $false
@@ -363,7 +389,7 @@ $grp = New-Object System.Windows.Forms.GroupBox
 $grp.Text = '环境状态'
 $grp.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 9, [System.Drawing.FontStyle]::Bold)
 $grp.Location = New-Object System.Drawing.Point(20, 72)
-$grp.Size = New-Object System.Drawing.Size(480, 84)
+$grp.Size = New-Object System.Drawing.Size(600, 84)
 $form.Controls.Add($grp)
 
 function New-StatusLabel($x, $y, $text) {
@@ -393,7 +419,7 @@ $script:log.ForeColor = [System.Drawing.Color]::FromArgb(178, 226, 157)
 $script:log.BorderStyle = 'FixedSingle'
 $script:log.Font = New-Object System.Drawing.Font('Consolas', 9)
 $script:log.Location = New-Object System.Drawing.Point(20, 170)
-$script:log.Size = New-Object System.Drawing.Size(480, 180)
+$script:log.Size = New-Object System.Drawing.Size(600, 180)
 $form.Controls.Add($script:log)
 
 # 按钮
@@ -430,10 +456,21 @@ $script:btnUpgrade.FlatStyle = 'Flat'
 $script:btnUpgrade.Add_Click({ Update-Dsh })
 $form.Controls.Add($script:btnUpgrade)
 
+$script:btnReinstall = New-Object System.Windows.Forms.Button
+$script:btnReinstall.Text = '重装 DSH'
+$script:btnReinstall.Size = New-Object System.Drawing.Size(112, 44)
+$script:btnReinstall.Location = New-Object System.Drawing.Point(386, 368)
+$script:btnReinstall.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 11, [System.Drawing.FontStyle]::Bold)
+$script:btnReinstall.BackColor = [System.Drawing.Color]::FromArgb(155, 89, 182)
+$script:btnReinstall.ForeColor = [System.Drawing.Color]::White
+$script:btnReinstall.FlatStyle = 'Flat'
+$script:btnReinstall.Add_Click({ Reinstall-Dsh })
+$form.Controls.Add($script:btnReinstall)
+
 $script:btnQuit = New-Object System.Windows.Forms.Button
 $script:btnQuit.Text = '退出'
 $script:btnQuit.Size = New-Object System.Drawing.Size(112, 44)
-$script:btnQuit.Location = New-Object System.Drawing.Point(386, 368)
+$script:btnQuit.Location = New-Object System.Drawing.Point(508, 368)
 $script:btnQuit.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 11)
 $script:btnQuit.BackColor = [System.Drawing.Color]::FromArgb(120, 126, 132)
 $script:btnQuit.ForeColor = [System.Drawing.Color]::White
@@ -442,7 +479,7 @@ $script:btnQuit.Add_Click({ $form.Close() })
 $form.Controls.Add($script:btnQuit)
 
 $lblHint = New-Object System.Windows.Forms.Label
-$lblHint.Text = '提示: 「重启 DSH」会先停止正在运行的 dsh 再重新启动；未安装时点击「启动 DSH」会自动安装。'
+$lblHint.Text = '提示: 「重启 DSH」会先停止再启动；「重装 DSH」只处理 npm 包并保留用户配置。'
 $lblHint.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 8)
 $lblHint.ForeColor = [System.Drawing.Color]::Gray
 $lblHint.AutoSize = $true
@@ -465,10 +502,17 @@ $timer.Add_Tick({
             }
         }
         if ($script:bgJob.State -eq 'Completed') {
+            $wasReinstallUninstall = $script:reinstallInstallPending
             Remove-Job $script:bgJob -Force
             $script:bgJob = $null
             if ($script:bgExitCode -eq 0) {
                 $script:log.AppendText(">>> $($script:bgLabel) 成功`r`n")
+                if ($wasReinstallUninstall) {
+                    $script:reinstallInstallPending = $false
+                    $script:log.AppendText('>>> 旧版已卸载，开始安装最新版 DeepSeek Harness...`r`n')
+                    Invoke-NpmAsync @('-g', 'install', '--prefer-online', '@deepseek-ai/dsh@latest') '正在安装最新版 DeepSeek Harness'
+                    return
+                }
                 Update-Status
                 if ($script:expectedVersion) {
                     $now = Get-DshVersion
@@ -486,6 +530,7 @@ $timer.Add_Tick({
             } else {
                 $script:log.AppendText(">>> $($script:bgLabel) 失败，请查看上方错误输出`r`n")
                 $script:autoLaunch = $false
+                $script:reinstallInstallPending = $false
             }
             Set-ButtonsEnabled $true
         } elseif ($script:bgJob.State -eq 'Failed') {
@@ -493,6 +538,7 @@ $timer.Add_Tick({
             $script:bgJob = $null
             $script:log.AppendText(">>> $($script:bgLabel) 异常失败，请检查上方输出并重试。`r`n")
             $script:autoLaunch = $false
+            $script:reinstallInstallPending = $false
             Set-ButtonsEnabled $true
         }
     }

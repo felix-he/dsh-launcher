@@ -1,6 +1,6 @@
 # DeepSeek Harness 启动器 (dsh-launcher)
 
-Windows 桌面启动器，用于检测、启动、重启、升级和自动安装 [DeepSeek Harness](https://www.deepseek.com/harness/) (dsh)。纯 PowerShell + WinForms 实现，绿色免安装，无额外运行时依赖（除 Node.js）。
+Windows 桌面启动器，用于检测、启动、重启、升级、重装和自动安装 [DeepSeek Harness](https://www.deepseek.com/harness/) (dsh)。纯 PowerShell + WinForms 实现，绿色免安装，无额外运行时依赖（除 Node.js）。
 
 ## 界面预览
 
@@ -13,6 +13,7 @@ Windows 桌面启动器，用于检测、启动、重启、升级和自动安装
 - **一键启动**：在独立窗口启动 dsh web 服务
 - **一键重启**：先停止正在运行的 dsh，再重新启动（三层停止机制，保证端口释放、无残留进程）
 - **一键升级**：显式版本 + `--prefer-online` + 安装后版本校验，避免 npm 路径不一致导致的"假升级"
+- **一键重装**：可选择强制覆盖安装，或卸载全局 npm 包后再安装最新版；不会删除用户配置
 - **自动安装**：未检测到 dsh 时自动提示，并通过 `npm install -g` 安装
 - **环境自检**：启动时自动检测 Node.js / dsh / npm 最新版本；Node 版本不满足要求时给出明确提示
 - **执行提示**：安装、升级、启动、重启和停止过程显示当前动作、等待提示和异常结果
@@ -75,6 +76,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\s
 | 启动 DSH | 启动 dsh web；未安装时自动提示并安装 |
 | 重启 DSH | 停止当前 dsh 后重新启动 |
 | 升级 DSH | 升级到 npm 最新版本，完成后校验版本 |
+| 重装 DSH | 选择强制覆盖安装，或卸载全局包后再安装最新版；保留 `.dsh` profile、插件和配置 |
 | 退出 | 停止已启动的 dsh 后关闭启动器 |
 
 ## 工作原理
@@ -85,6 +87,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\tools\dsh-launcher\s
   2. 若未退出，`taskkill /T /F` 结束进程树；
   3. 按命令行特征 `@deepseek-ai\dsh` 清扫残留 node 进程，确保端口 3080 释放；
 - **升级**：读取 npm 最新版本 → 显式指定 `@deepseek-ai/dsh@<版本>` + `--prefer-online` 安装 → 按 npm 全局前缀重新探测 dsh 并校验实际版本；若版本未变化，提示检查 npm 前缀和命令路径。
+- **重装**：可执行 `npm install -g --force --prefer-online @deepseek-ai/dsh@latest`，或先执行 `npm uninstall -g @deepseek-ai/dsh` 再安装最新版；两种方式只处理全局 npm 包，不删除 `%USERPROFILE%\\.dsh` 下的 profile、插件和配置，完成后不会自动启动 DSH。
 - **执行提示**：启动器会显示安装、升级、重启和停止的阶段性日志；npm 输出会在后台任务运行期间逐步显示。独立 dsh 窗口会提示启动、运行注意事项和退出码。
 
 ## 项目结构
